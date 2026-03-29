@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Chicago Citations Dashboard", layout="wide")
 st.title("Chicago Citations Account Dashboard")
 
-# 1. Load Baked Data
 @st.cache_data
 def load_data():
     df_debt = pd.read_parquet("baked_top_debt_summary.parquet")
@@ -23,7 +22,6 @@ with st.spinner("Loading baked data..."):
 def get_notice_details(notice_number):
     return all_details[all_details['notice_number'] == notice_number].copy()
 
-# Row Highlighting Function
 def highlight_ticket_rows(row):
     color = ''
     queue = str(row.get('ticket_queue', '')).upper()
@@ -41,7 +39,6 @@ def highlight_ticket_rows(row):
         color = 'background-color: rgba(211, 84, 0, 0.4)'        # Orange
     return [color] * len(row)
 
-# The Details Overlay
 @st.dialog("Account Details & Breakdown", width="large")
 def show_account_modal(notice_number, summary_data):
     st.markdown(f"### Notice Number: `{notice_number}`")
@@ -98,19 +95,37 @@ def show_account_modal(notice_number, summary_data):
     st.plotly_chart(fig_time, use_container_width=True)
     st.divider()
 
+    st.write("### Ticket Distributions")
+    
+    # --- ROW 1: VIOLATION DESCRIPTION ---
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
         count_df = details_df['violation_description'].value_counts().reset_index()
         count_df.columns = ['violation_description', 'count']
-        fig1 = px.pie(count_df, names='violation_description', values='count', title='Violation Types (by Count)', hole=0.4)
+        fig1 = px.pie(count_df, names='violation_description', values='count', title='Description (by Count)', hole=0.4)
         fig1.update_traces(textposition='inside', textinfo='percent')
         st.plotly_chart(fig1, use_container_width=True)
 
     with chart_col2:
         debt_df = details_df[details_df['current_amount_due'] > 0].groupby('violation_description')['current_amount_due'].sum().reset_index()
-        fig2 = px.pie(debt_df, names='violation_description', values='current_amount_due', title='Outstanding Debt (by Type)', hole=0.4)
+        fig2 = px.pie(debt_df, names='violation_description', values='current_amount_due', title='Description (by Debt)', hole=0.4)
         fig2.update_traces(textposition='inside', textinfo='percent')
         st.plotly_chart(fig2, use_container_width=True)
+
+    # --- ROW 2: VIOLATION CATEGORY ---
+    chart_col3, chart_col4 = st.columns(2)
+    with chart_col3:
+        cat_count_df = details_df['violation_category'].value_counts().reset_index()
+        cat_count_df.columns = ['violation_category', 'count']
+        fig3 = px.pie(cat_count_df, names='violation_category', values='count', title='Category (by Count)', hole=0.4)
+        fig3.update_traces(textposition='inside', textinfo='percent')
+        st.plotly_chart(fig3, use_container_width=True)
+
+    with chart_col4:
+        cat_debt_df = details_df[details_df['current_amount_due'] > 0].groupby('violation_category')['current_amount_due'].sum().reset_index()
+        fig4 = px.pie(cat_debt_df, names='violation_category', values='current_amount_due', title='Category (by Debt)', hole=0.4)
+        fig4.update_traces(textposition='inside', textinfo='percent')
+        st.plotly_chart(fig4, use_container_width=True)
 
     st.write("### Individual Ticket Breakdown (Oldest to Newest)")
     details_df['issue_date'] = details_df['issue_date'].dt.strftime('%Y-%m-%d')
@@ -122,14 +137,12 @@ def show_account_modal(notice_number, summary_data):
     st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # Main UI Layout
-# Use a Radio button to swap between views
 view_option = st.radio(
     "Select Account Ranking:",
     options=["Top Debtors (Highest Outstanding)", "Top Payers (Highest Total Paid)", "Most Compliant (Highest Count of Paid/Dismissed)"],
     horizontal=True
 )
 
-# Set the active dataframe based on selection
 if view_option.startswith("Top Debtors"):
     current_df = df_debt
 elif view_option.startswith("Top Payers"):
@@ -140,7 +153,6 @@ else:
 col_left, col_right = st.columns([3, 1])
 
 with col_left:
-    # Notice we pass the dynamically selected `current_df` into the dataframe
     selection_event = st.dataframe(
         current_df,
         use_container_width=True, hide_index=True,
@@ -166,7 +178,6 @@ with col_right:
     st.subheader("Inspect Account")
     st.info("Select an account from the table or dropdown to view charts and details.")
     
-    # Dropdown updates dynamically based on the current active view!
     selected_notice = st.selectbox(
         "Select Notice Number:", 
         options=current_df["notice_number"].tolist(), 
