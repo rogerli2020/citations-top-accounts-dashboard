@@ -4,31 +4,25 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 N = 5000
-# Point to your new lightweight baked files
 SUMMARY_PATH = f"baked_top_{N}_summary.parquet"
 DETAILS_PATH = f"baked_top_{N}_details.parquet"
 
 st.set_page_config(page_title="Chicago Citations Dashboard", layout="wide")
 st.title(f"Chicago Citations: Top {N} Debt Accounts")
 
-# 1. Load Baked Data (Cached so it only happens once when the app starts)
 @st.cache_data
 def load_data():
     summary_df = pd.read_parquet(SUMMARY_PATH)
     details_df = pd.read_parquet(DETAILS_PATH)
-    # Pre-process dates once globally to save time in the popup
     details_df['issue_date'] = pd.to_datetime(details_df['issue_date'])
     return summary_df, details_df
 
 with st.spinner("Loading baked data..."):
     top_debtors, all_details = load_data()
 
-# 2. Helper function to filter the pre-loaded pandas dataframe
 def get_notice_details(notice_number):
-    # Standard pandas filtering - extremely fast on a dataset this size
     return all_details[all_details['notice_number'] == notice_number].copy()
 
-# 3. Modal/Popup (Identical to before, just uses the new Pandas function)
 @st.dialog("Account Details & Breakdown", width="large")
 def show_account_modal(notice_number, summary_data):
     st.markdown(f"### Notice Number: `{notice_number}`")
@@ -53,11 +47,20 @@ def show_account_modal(notice_number, summary_data):
     
     details_df = get_notice_details(notice_number)
     
+    # 1. Sort the dataset from Oldest to Newest
+    details_df = details_df.sort_values('issue_date', ascending=True)
+    
     st.write("### Debt Accumulation & Payment Behavior")
+    
+    # 2. Group by date, but keep a list of the descriptions and zips for the hover text
+    # If they got multiple tickets on one day, they will be separated by a comma.
     time_df = details_df.groupby(details_df['issue_date'].dt.date).agg({
         'current_amount_due': 'sum',
-        'total_paid': 'sum'
+        'total_paid': 'sum',
+        'violation_description': lambda x: ', '.join(x.dropna().astype(str)),
+        'violation_zip': lambda x: ', '.join(x.dropna().astype(str))
     }).reset_index()
+    
     time_df.rename(columns={'issue_date': 'Date'}, inplace=True)
     time_df = time_df.sort_values('Date')
     
@@ -65,19 +68,37 @@ def show_account_modal(notice_number, summary_data):
     time_df['Cumulative Fines Incurred'] = time_df['ticket_value'].cumsum()
     
     fig_time = go.Figure()
+    
+    # Add the Debt Line with Custom Hover Data
     fig_time.add_trace(go.Scatter(
-        x=time_df['Date'], y=time_df['Cumulative Fines Incurred'],
-        mode='lines+markers', name='Cumulative Fines Incurred',
-        line=dict(color='firebrick', width=3)
+        x=time_df['Date'], 
+        y=time_df['Cumulative Fines Incurred'],
+        mode='lines+markers', 
+        name='Cumulative Fines Incurred',
+        line=dict(color='firebrick', width=3),
+        customdata=time_df[['violation_description', 'violation_zip']],
+        hovertemplate=(
+            "<b>Cumulative Fines:</b> $%{y:,.2f}<br>" +
+            "<b>Violations:</b> %{customdata[0]}<br>" +
+            "<b>ZIPs:</b> %{customdata[1]}<extra></extra>"
+        )
     ))
+    
     fig_time.add_trace(go.Bar(
-        x=time_df['Date'], y=time_df['total_paid'],
+        x=time_df['Date'], 
+        y=time_df['total_paid'],
         name='Paid Towards Tickets (by Issue Date)',
-        marker_color='seagreen', opacity=0.8
+        marker_color='seagreen', 
+        opacity=0.8,
+        hovertemplate="<b>Paid:</b> $%{y:,.2f}<extra></extra>"
     ))
+    
     fig_time.update_layout(
-        xaxis_title='Ticket Issue Date', yaxis_title='Amount ($)', hovermode='x unified',
-        margin=dict(l=0, r=0, t=30, b=0), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        xaxis_title='Ticket Issue Date', 
+        yaxis_title='Amount ($)', 
+        hovermode='x unified',
+        margin=dict(l=0, r=0, t=30, b=0), 
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_time, use_container_width=True)
     st.divider()
@@ -96,8 +117,11 @@ def show_account_modal(notice_number, summary_data):
         fig2.update_traces(textposition='inside', textinfo='percent')
         st.plotly_chart(fig2, use_container_width=True)
 
-    st.write("### Individual Ticket Breakdown")
+    st.write("### Individual Ticket Breakdown (Oldest to Newest)")
+    
+    # Format the date nicely for the dataframe table
     details_df['issue_date'] = details_df['issue_date'].dt.strftime('%Y-%m-%d')
+    
     st.dataframe(
         details_df.drop(columns=['notice_number']).style.format({
             "current_amount_due": "${:,.2f}", 
@@ -106,7 +130,7 @@ def show_account_modal(notice_number, summary_data):
         use_container_width=True, hide_index=True
     )
 
-# 4. Main UI Layout
+# Main UI Layout
 col_left, col_right = st.columns([3, 1])
 
 with col_left:

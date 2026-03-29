@@ -29,7 +29,7 @@ summary_query = f"""
     ) TO 'baked_top_{N}_summary.parquet' (FORMAT PARQUET);
 """
 
-# 2. Bake the Ticket Details ONLY for those Top N accounts
+# 2. Bake the Ticket Details (Now includes violation_zip)
 details_query = f"""
     COPY (
         SELECT 
@@ -37,6 +37,7 @@ details_query = f"""
             notice_number,
             issue_date,
             violation_description,
+            violation_zip,
             ticket_queue,
             payment_count,
             total_paid,
