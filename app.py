@@ -3,34 +3,29 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-N = 5000
-SUMMARY_PATH = f"baked_top_{N}_summary.parquet"
-DETAILS_PATH = f"baked_top_{N}_details.parquet"
-
 st.set_page_config(page_title="Chicago Citations Dashboard", layout="wide")
-st.title(f"Chicago Citations: Top {N} Debt Accounts")
+st.title("Chicago Citations Account Dashboard")
 
+# 1. Load Baked Data
 @st.cache_data
 def load_data():
-    summary_df = pd.read_parquet(SUMMARY_PATH)
-    details_df = pd.read_parquet(DETAILS_PATH)
+    df_debt = pd.read_parquet("baked_top_debt_summary.parquet")
+    df_paid = pd.read_parquet("baked_top_paid_summary.parquet")
+    df_comp = pd.read_parquet("baked_top_compliant_summary.parquet")
+    
+    details_df = pd.read_parquet("baked_all_details.parquet")
     details_df['issue_date'] = pd.to_datetime(details_df['issue_date'])
-    return summary_df, details_df
+    return df_debt, df_paid, df_comp, details_df
 
 with st.spinner("Loading baked data..."):
-    top_debtors, all_details = load_data()
+    df_debt, df_paid, df_comp, all_details = load_data()
 
 def get_notice_details(notice_number):
     return all_details[all_details['notice_number'] == notice_number].copy()
 
-# --- NEW: Row Highlighting Function ---
+# Row Highlighting Function
 def highlight_ticket_rows(row):
-    """
-    Applies background color to the entire row based on queue and notice level.
-    Using RGBA allows transparency, which plays nicely with light/dark modes.
-    """
-    color = '' # Default (no background)
-    
+    color = ''
     queue = str(row.get('ticket_queue', '')).upper()
     level = str(row.get('notice_level', '')).upper()
     
@@ -44,9 +39,9 @@ def highlight_ticket_rows(row):
         color = 'background-color: rgba(192, 57, 43, 0.4)'       # Red
     elif queue == 'NOTICE' and level == 'FINL':
         color = 'background-color: rgba(211, 84, 0, 0.4)'        # Orange
-        
     return [color] * len(row)
 
+# The Details Overlay
 @st.dialog("Account Details & Breakdown", width="large")
 def show_account_modal(notice_number, summary_data):
     st.markdown(f"### Notice Number: `{notice_number}`")
@@ -65,18 +60,14 @@ def show_account_modal(notice_number, summary_data):
     col5.metric("Owner ZIP", str(summary_data['owner_zip']))
     col6.metric("Median Income", f"${summary_data['owner_median_income']:,.2f}" if pd.notnull(summary_data['owner_median_income']) else "N/A")
     col7.metric("Owner in Chicago?", in_chi_text)
-    col8.metric("Owner Zone", str(summary_data['owner_zone']) if pd.notnull(summary_data['owner_zone']) else "N/A")
+    col8.metric("Compliant Tickets (Paid/Dismissed)", int(summary_data['compliant_tickets']))
     
     st.divider()
     
     details_df = get_notice_details(notice_number)
-    
-    # 1. Sort the dataset from Oldest to Newest
     details_df = details_df.sort_values('issue_date', ascending=True)
     
     st.write("### Debt Accumulation & Payment Behavior")
-    
-    # 2. Group by date, but keep a list of the descriptions and zips for the hover text
     time_df = details_df.groupby(details_df['issue_date'].dt.date).agg({
         'current_amount_due': 'sum',
         'total_paid': 'sum',
@@ -86,42 +77,23 @@ def show_account_modal(notice_number, summary_data):
     
     time_df.rename(columns={'issue_date': 'Date'}, inplace=True)
     time_df = time_df.sort_values('Date')
-    
     time_df['ticket_value'] = time_df['current_amount_due'] + time_df['total_paid']
     time_df['Cumulative Fines Incurred'] = time_df['ticket_value'].cumsum()
     
     fig_time = go.Figure()
-    
-    # Add the Debt Line with Custom Hover Data
     fig_time.add_trace(go.Scatter(
-        x=time_df['Date'], 
-        y=time_df['Cumulative Fines Incurred'],
-        mode='lines+markers', 
-        name='Cumulative Fines Incurred',
-        line=dict(color='firebrick', width=3),
+        x=time_df['Date'], y=time_df['Cumulative Fines Incurred'], mode='lines+markers', 
+        name='Cumulative Fines Incurred', line=dict(color='firebrick', width=3),
         customdata=time_df[['violation_description', 'violation_zip']],
-        hovertemplate=(
-            "<b>Cumulative Fines:</b> $%{y:,.2f}<br>" +
-            "<b>Violations:</b> %{customdata[0]}<br>" +
-            "<b>ZIPs:</b> %{customdata[1]}<extra></extra>"
-        )
+        hovertemplate="<b>Cumulative Fines:</b> $%{y:,.2f}<br><b>Violations:</b> %{customdata[0]}<br><b>ZIPs:</b> %{customdata[1]}<extra></extra>"
     ))
-    
     fig_time.add_trace(go.Bar(
-        x=time_df['Date'], 
-        y=time_df['total_paid'],
-        name='Paid Towards Tickets (by Issue Date)',
-        marker_color='seagreen', 
-        opacity=0.8,
-        hovertemplate="<b>Paid:</b> $%{y:,.2f}<extra></extra>"
+        x=time_df['Date'], y=time_df['total_paid'], name='Paid Towards Tickets (by Issue Date)',
+        marker_color='seagreen', opacity=0.8, hovertemplate="<b>Paid:</b> $%{y:,.2f}<extra></extra>"
     ))
-    
     fig_time.update_layout(
-        xaxis_title='Ticket Issue Date', 
-        yaxis_title='Amount ($)', 
-        hovermode='x unified',
-        margin=dict(l=0, r=0, t=30, b=0), 
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        xaxis_title='Ticket Issue Date', yaxis_title='Amount ($)', hovermode='x unified',
+        margin=dict(l=0, r=0, t=30, b=0), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_time, use_container_width=True)
     st.divider()
@@ -141,47 +113,66 @@ def show_account_modal(notice_number, summary_data):
         st.plotly_chart(fig2, use_container_width=True)
 
     st.write("### Individual Ticket Breakdown (Oldest to Newest)")
-    
-    # Format the date nicely for the dataframe table
     details_df['issue_date'] = details_df['issue_date'].dt.strftime('%Y-%m-%d')
-    
-    # Apply the formatting and row coloring
     styled_df = details_df.drop(columns=['notice_number']).style.format({
         "current_amount_due": "${:,.2f}", 
         "total_paid": "${:,.2f}"
-    }).apply(highlight_ticket_rows, axis=1) # <- Applied the new function here
+    }).apply(highlight_ticket_rows, axis=1)
     
     st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # Main UI Layout
+# Use a Radio button to swap between views
+view_option = st.radio(
+    "Select Account Ranking:",
+    options=["Top Debtors (Highest Outstanding)", "Top Payers (Highest Total Paid)", "Most Compliant (Highest Count of Paid/Dismissed)"],
+    horizontal=True
+)
+
+# Set the active dataframe based on selection
+if view_option.startswith("Top Debtors"):
+    current_df = df_debt
+elif view_option.startswith("Top Payers"):
+    current_df = df_paid
+else:
+    current_df = df_comp
+
 col_left, col_right = st.columns([3, 1])
 
 with col_left:
-    st.subheader("Top Debtors Table")
+    # Notice we pass the dynamically selected `current_df` into the dataframe
     selection_event = st.dataframe(
-        top_debtors,
+        current_df,
         use_container_width=True, hide_index=True,
         on_select="rerun", selection_mode="single-row",
         column_config={
             "total_outstanding_debt": st.column_config.NumberColumn("Total Outstanding Debt", format="$%.2f"),
             "total_paid": st.column_config.NumberColumn("Total Paid", format="$%.2f"),
             "owner_median_income": st.column_config.NumberColumn("Owner Median Income", format="$%.2f"),
+            "compliant_tickets": st.column_config.NumberColumn("Compliant Tickets"),
             "flag_owner_in_chicago": st.column_config.CheckboxColumn("In Chicago?")
         }
     )
 
 default_index = 0
 selected_indices = selection_event.selection.rows
+
 if selected_indices:
     selected_row_idx = selected_indices[0]
-    selected_notice_from_table = top_debtors.iloc[selected_row_idx]["notice_number"]
-    default_index = top_debtors["notice_number"].tolist().index(selected_notice_from_table)
+    selected_notice_from_table = current_df.iloc[selected_row_idx]["notice_number"]
+    default_index = current_df["notice_number"].tolist().index(selected_notice_from_table)
 
 with col_right:
     st.subheader("Inspect Account")
     st.info("Select an account from the table or dropdown to view charts and details.")
-    selected_notice = st.selectbox("Select Notice Number:", options=top_debtors["notice_number"].tolist(), index=default_index)
+    
+    # Dropdown updates dynamically based on the current active view!
+    selected_notice = st.selectbox(
+        "Select Notice Number:", 
+        options=current_df["notice_number"].tolist(), 
+        index=default_index
+    )
     
     if st.button("🔍 View Details Overlay", use_container_width=True, type="primary"):
-        account_summary = top_debtors[top_debtors["notice_number"] == selected_notice].iloc[0]
+        account_summary = current_df[current_df["notice_number"] == selected_notice].iloc[0]
         show_account_modal(selected_notice, account_summary)
