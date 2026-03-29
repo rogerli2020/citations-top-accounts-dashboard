@@ -23,6 +23,7 @@ summary_query = f"""
             notice_number IS NOT NULL
             AND notice_number != '0' 
             AND is_fleet IS FALSE
+            AND NOT (plate_type = 'PFR' OR hearing_disposition_reason LIKE '%FLEET%')
         GROUP BY notice_number
         ORDER BY total_outstanding_debt DESC
         LIMIT {N}
