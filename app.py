@@ -97,20 +97,20 @@ def show_account_modal(notice_number, summary_data):
 
     st.write("### Ticket Distributions")
     
-    # --- ROW 1: VIOLATION DESCRIPTION ---
-    chart_col1, chart_col2 = st.columns(2)
-    with chart_col1:
-        count_df = details_df['violation_description'].value_counts().reset_index()
-        count_df.columns = ['violation_description', 'count']
-        fig1 = px.pie(count_df, names='violation_description', values='count', title='Description (by Count)', hole=0.4)
-        fig1.update_traces(textposition='inside', textinfo='percent')
-        st.plotly_chart(fig1, use_container_width=True)
+    # # --- ROW 1: VIOLATION DESCRIPTION ---
+    # chart_col1, chart_col2 = st.columns(2)
+    # with chart_col1:
+    #     count_df = details_df['violation_description'].value_counts().reset_index()
+    #     count_df.columns = ['violation_description', 'count']
+    #     fig1 = px.pie(count_df, names='violation_description', values='count', title='Description (by Count)', hole=0.4)
+    #     fig1.update_traces(textposition='inside', textinfo='percent')
+    #     st.plotly_chart(fig1, use_container_width=True)
 
-    with chart_col2:
-        debt_df = details_df[details_df['current_amount_due'] > 0].groupby('violation_description')['current_amount_due'].sum().reset_index()
-        fig2 = px.pie(debt_df, names='violation_description', values='current_amount_due', title='Description (by Debt)', hole=0.4)
-        fig2.update_traces(textposition='inside', textinfo='percent')
-        st.plotly_chart(fig2, use_container_width=True)
+    # with chart_col2:
+    #     debt_df = details_df[details_df['current_amount_due'] > 0].groupby('violation_description')['current_amount_due'].sum().reset_index()
+    #     fig2 = px.pie(debt_df, names='violation_description', values='current_amount_due', title='Description (by Debt)', hole=0.4)
+    #     fig2.update_traces(textposition='inside', textinfo='percent')
+    #     st.plotly_chart(fig2, use_container_width=True)
 
     # --- ROW 2: VIOLATION CATEGORY ---
     chart_col3, chart_col4 = st.columns(2)
