@@ -22,6 +22,8 @@ base_select = """
         notice_number IS NOT NULL
         AND notice_number != '0' 
         AND is_fleet IS FALSE
+        AND NOT plate_type = 'PFR'
+        AND NOT hearing_disposition_reason LIKE '%FLEET%'
     GROUP BY notice_number
 """
 
