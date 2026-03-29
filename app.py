@@ -23,6 +23,30 @@ with st.spinner("Loading baked data..."):
 def get_notice_details(notice_number):
     return all_details[all_details['notice_number'] == notice_number].copy()
 
+# --- NEW: Row Highlighting Function ---
+def highlight_ticket_rows(row):
+    """
+    Applies background color to the entire row based on queue and notice level.
+    Using RGBA allows transparency, which plays nicely with light/dark modes.
+    """
+    color = '' # Default (no background)
+    
+    queue = str(row.get('ticket_queue', '')).upper()
+    level = str(row.get('notice_level', '')).upper()
+    
+    if queue == 'PAID':
+        color = 'background-color: rgba(39, 174, 96, 0.3)'       # Green
+    elif queue == 'BANKRUPTCY':
+        color = 'background-color: rgba(41, 128, 185, 0.3)'      # Blue
+    elif queue == 'DISMISSED':
+        color = 'background-color: rgba(149, 165, 166, 0.3)'     # Gray
+    elif queue == 'NOTICE' and level == 'SEIZ':
+        color = 'background-color: rgba(192, 57, 43, 0.4)'       # Red
+    elif queue == 'NOTICE' and level == 'FINL':
+        color = 'background-color: rgba(211, 84, 0, 0.4)'        # Orange
+        
+    return [color] * len(row)
+
 @st.dialog("Account Details & Breakdown", width="large")
 def show_account_modal(notice_number, summary_data):
     st.markdown(f"### Notice Number: `{notice_number}`")
@@ -53,7 +77,6 @@ def show_account_modal(notice_number, summary_data):
     st.write("### Debt Accumulation & Payment Behavior")
     
     # 2. Group by date, but keep a list of the descriptions and zips for the hover text
-    # If they got multiple tickets on one day, they will be separated by a comma.
     time_df = details_df.groupby(details_df['issue_date'].dt.date).agg({
         'current_amount_due': 'sum',
         'total_paid': 'sum',
@@ -122,13 +145,13 @@ def show_account_modal(notice_number, summary_data):
     # Format the date nicely for the dataframe table
     details_df['issue_date'] = details_df['issue_date'].dt.strftime('%Y-%m-%d')
     
-    st.dataframe(
-        details_df.drop(columns=['notice_number']).style.format({
-            "current_amount_due": "${:,.2f}", 
-            "total_paid": "${:,.2f}"
-        }), 
-        use_container_width=True, hide_index=True
-    )
+    # Apply the formatting and row coloring
+    styled_df = details_df.drop(columns=['notice_number']).style.format({
+        "current_amount_due": "${:,.2f}", 
+        "total_paid": "${:,.2f}"
+    }).apply(highlight_ticket_rows, axis=1) # <- Applied the new function here
+    
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # Main UI Layout
 col_left, col_right = st.columns([3, 1])
