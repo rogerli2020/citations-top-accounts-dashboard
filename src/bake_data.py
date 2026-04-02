@@ -16,7 +16,8 @@ base_select = """
         ANY_VALUE("owner_median_income") AS owner_median_income,
         MAX(bankruptcy_status) AS bankruptcy_status,
         ANY_VALUE(flag_owner_in_chicago) AS flag_owner_in_chicago,
-        ANY_VALUE(owner_zone) AS owner_zone
+        ANY_VALUE(owner_zone) AS owner_zone,
+        ANY_VALUE(last_active_date) AS last_active_date
     FROM read_parquet('{path}')
     WHERE 
         notice_number IS NOT NULL

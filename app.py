@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Chicago Citations Dashboard", layout="wide")
 st.title("Chicago Citations Account Dashboard")
+st.subheader("FOR VIOLATORS ACTIVE LAST YEAR")
 
 @st.cache_data
 def load_data():
