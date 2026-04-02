@@ -24,6 +24,9 @@ base_select = """
         AND is_fleet IS FALSE
         AND NOT plate_type = 'PFR'
         AND NOT hearing_disposition_reason LIKE '%FLEET%'
+
+        -- filter for only 'active' individuals
+        AND date_diff( 'day', last_active_date, '2026-01-12' ) <= 365
     GROUP BY notice_number
 """
 
