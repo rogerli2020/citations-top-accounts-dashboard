@@ -11,7 +11,7 @@ TRANSACTIONS_PATH = "./data/transactions.parquet"
 N = 5000
 
 st.set_page_config(page_title="Chicago Citations Dashboard", layout="wide")
-st.title(f"Chicago Citations: Top {N} Debt Accounts")
+st.title(f"Chicago Citations: Top {N} Debt Accounts ACTIVE WITHIN LAST YEAR")
 
 # 1. Query Top N Debtors directly from Parquet
 @st.cache_data
