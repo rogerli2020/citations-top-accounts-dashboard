@@ -53,7 +53,7 @@ def show_account_modal(notice_number, summary_data):
     col2.metric("Total Paid", f"${summary_data['total_paid']:,.2f}")
     col3.metric("Total Tickets", int(summary_data['total_tickets']))
     col4.metric("Bankruptcy Status", bk_text)
-    col4_0.metric("Owner Zone", str(summary_data['last_active_date'])[:11] if pd.notnull(summary_data['last_active_date']) else "N/A")
+    col4_0.metric("Last Active Date", str(summary_data['last_active_date'])[:11] if pd.notnull(summary_data['last_active_date']) else "N/A")
     
     col5, col6, col7, col8 = st.columns(4)
     col5.metric("Owner ZIP", str(summary_data['owner_zip']))
