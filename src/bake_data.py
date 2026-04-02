@@ -46,7 +46,8 @@ query_details = f"""
             payment_count,
             total_paid,
             current_amount_due,
-            notice_level
+            notice_level,
+            boot_status
         FROM read_parquet('{CITATIONS_PATH}')
         WHERE notice_number IN (SELECT notice_number FROM read_parquet('baked_top_debt_summary.parquet'))
            OR notice_number IN (SELECT notice_number FROM read_parquet('baked_top_paid_summary.parquet'))
