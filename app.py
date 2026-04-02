@@ -48,18 +48,18 @@ def show_account_modal(notice_number, summary_data):
     bk_text = bk_map.get(summary_data['bankruptcy_status'], "N/A")
     in_chi_text = "Yes" if summary_data['flag_owner_in_chicago'] else "No"
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col4_0 = st.columns(5)
     col1.metric("Outstanding Debt", f"${summary_data['total_outstanding_debt']:,.2f}")
     col2.metric("Total Paid", f"${summary_data['total_paid']:,.2f}")
     col3.metric("Total Tickets", int(summary_data['total_tickets']))
     col4.metric("Bankruptcy Status", bk_text)
+    col4_0.metric("Owner Zone", str(summary_data['last_active_date'])[:11] if pd.notnull(summary_data['last_active_date']) else "N/A")
     
-    col5, col6, col7, col8, col9 = st.columns(5)
+    col5, col6, col7, col8 = st.columns(4)
     col5.metric("Owner ZIP", str(summary_data['owner_zip']))
     col6.metric("Median Income", f"${summary_data['owner_median_income']:,.2f}" if pd.notnull(summary_data['owner_median_income']) else "N/A")
     col7.metric("Owner in Chicago?", in_chi_text)
     col8.metric("Owner Zone", str(summary_data['owner_zone']) if pd.notnull(summary_data['owner_zone']) else "N/A")
-    col9.metric("Owner Zone", str(summary_data['last_active_date'])[:11] if pd.notnull(summary_data['last_active_date']) else "N/A")
 
     st.divider()
     
